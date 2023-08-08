@@ -1,0 +1,12 @@
+server:
+  port: 8080
+
+
+##mybatis
+spring:
+  datasource:
+    url: jdbc:mysql://localhost:3306/way?useUnicode=true&characterEncoding=UTF-8&useSSL=false
+    username: root
+    password: root
+mybatis:
+  mapper-locations: classpath:mapper/*.xml
