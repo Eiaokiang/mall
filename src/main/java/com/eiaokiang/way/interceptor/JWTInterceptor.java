@@ -4,6 +4,7 @@ import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONUtil;
 import cn.hutool.jwt.JWTUtil;
 import com.eiaokiang.way.pojo.User;
+import com.eiaokiang.way.service.IUserService;
 import com.eiaokiang.way.util.RedisUtil;
 import com.eiaokiang.way.util.ReturnUtil;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,7 +14,6 @@ import org.springframework.web.servlet.HandlerInterceptor;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import java.util.concurrent.TimeUnit;
 
 /**
  * @Author: Eiaokiang
@@ -29,6 +29,9 @@ public class JWTInterceptor implements HandlerInterceptor {
     @Value("${token.expireTime}")
     Integer tokenExpireTime;
 
+    @Autowired
+    IUserService userService;
+
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
 
@@ -39,24 +42,22 @@ public class JWTInterceptor implements HandlerInterceptor {
         if (StrUtil.isEmpty(token)) {
             result = ReturnUtil.Error("token 不存在");
         } else {
-            String uId = null;
+            Integer uId = null;
             try {
-                uId = JWTUtil.parseToken(token).getPayload("uId").toString();
+                uId = Integer.parseInt(JWTUtil.parseToken(token).getPayload("uId").toString());
             } catch (Exception e) {
                 result = ReturnUtil.Error("token 不存在");
                 response.getWriter().print(JSONUtil.toJsonStr(result));
                 return false;
             }
 
+            User user = userService.getById(uId);
 
-            String key = "token:" + uId;
-            Object value = redisUtil.getValue(key);
-            if (value != null) {
-                User user = JSONUtil.toBean((String) value, User.class);
+            if (user != null && user.getExpireTime() >= System.currentTimeMillis()) {
                 //token小于5分钟  刷新token
                 if (user.getExpireTime() - System.currentTimeMillis() <= 5 * 60 * 1000) {
                     user.setExpireTime(System.currentTimeMillis() + tokenExpireTime * 60 * 1000);
-                    redisUtil.saveValue(key, user, tokenExpireTime, TimeUnit.MINUTES);
+                    userService.updateById(user);
                 }
                 return true;
             } else {
